@@ -1,0 +1,80 @@
+// src/services/auth.service.ts
+import { apiService } from './api';
+import Cookies from 'js-cookie';
+import { AuthResponse, RegisterFormData, User } from '../types';
+
+class AuthService {
+  async register(userData: RegisterFormData): Promise<AuthResponse> {
+    try {
+      const response = await apiService.post<AuthResponse>('/auth/register', userData);
+      
+      if (response.data.token) {
+        this.setToken(response.data.token, false);
+        this.setUser(response.data.user);
+      }
+      
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  async login(email: string, password: string, rememberMe: boolean = false): Promise<AuthResponse> {
+    try {
+      const response = await apiService.post<AuthResponse>('/auth/login', { email, password });
+      
+      if (response.data.token) {
+        this.setToken(response.data.token, rememberMe);
+        this.setUser(response.data.user);
+      }
+      
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  logout(): void {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    Cookies.remove('token');
+  }
+
+  setToken(token: string, rememberMe: boolean = false): void {
+    if (rememberMe) {
+      localStorage.setItem('token', token);
+    } else {
+      Cookies.set('token', token, { expires: 1 });
+      localStorage.setItem('token', token);
+    }
+  }
+
+  setUser(user: User): void {
+    localStorage.setItem('user', JSON.stringify(user));
+  }
+
+  getCurrentUser(): User | null {
+    const user = localStorage.getItem('user');
+    return user ? JSON.parse(user) : null;
+  }
+
+  getToken(): string | null {
+    return localStorage.getItem('token') || Cookies.get('token') || null;
+  }
+
+  isAuthenticated(): boolean {
+    return !!this.getToken();
+  }
+
+  private handleError(error: any): Error {
+    if (error.response) {
+      return new Error(error.response.data.message || 'Ошибка сервера');
+    } else if (error.request) {
+      return new Error('Нет ответа от сервера. Проверьте подключение.');
+    } else {
+      return new Error('Ошибка при отправке запроса');
+    }
+  }
+}
+
+export default new AuthService();
