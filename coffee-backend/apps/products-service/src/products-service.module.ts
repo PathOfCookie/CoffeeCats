@@ -1,80 +1,36 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Product, ProductCategory } from './entities/product.entity';
-import { CreateProductDto, UpdateProductDto } from './dto/product.dto';
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ProductsServiceController } from './products-service.controller';
+import { ProductsServiceService } from './products-service.service';
+import { Product } from './entities/product.entity';
 
-@Injectable()
-export class ProductsServiceModule {
-  constructor(
-    @InjectRepository(Product)
-    private productRepository: Repository<Product>,
-  ) {}
-
-  async findAll(category?: string, search?: string) {
-    const query = this.productRepository.createQueryBuilder('product');
-
-    if (category) {
-      query.andWhere('product.category = :category', { category });
-    }
-
-    if (search) {
-      query.andWhere('product.name ILIKE :search', { search: `%${search}%` });
-    }
-
-    return query.getMany();
-  }
-
-  async findOne(id: number) {
-    const product = await this.productRepository.findOne({ where: { id } });
-    if (!product) {
-      throw new NotFoundException('Товар не найден');
-    }
-    return product;
-  }
-
-  async create(createProductDto: CreateProductDto) {
-    const product = this.productRepository.create(createProductDto);
-    return this.productRepository.save(product);
-  }
-
-  async update(id: number, updateProductDto: UpdateProductDto) {
-    const product = await this.findOne(id);
-    Object.assign(product, updateProductDto);
-    product.updated_at = new Date();
-    return this.productRepository.save(product);
-  }
-
-  async remove(id: number) {
-    const product = await this.findOne(id);
-    return this.productRepository.remove(product);
-  }
-
-  async getStats() {
-    const total = await this.productRepository.count();
-
-    const totalValueResult = await this.productRepository
-      .createQueryBuilder('product')
-      .select('SUM(product.price * product.stock)', 'total')
-      .getRawOne();
-
-    const lowStock = await this.productRepository
-      .createQueryBuilder('product')
-      .where('product.stock <= product.min_quantity')
-      .getCount();
-
-    const byCategory = await this.productRepository
-      .createQueryBuilder('product')
-      .select('product.category', 'category')
-      .addSelect('COUNT(*)', 'count')
-      .groupBy('product.category')
-      .getRawMany();
-
-    return {
-      total,
-      totalValue: Number(totalValueResult.total) || 0,
-      lowStock,
-      byCategory,
-    };
-  }
-}
+@Module({
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => ({
+        type: 'postgres',
+        host: configService.get('DB_HOST'),
+        port: configService.get('DB_PORT'),
+        username: configService.get('DB_USER'),
+        password: configService.get('DB_PASSWORD'),
+        database: configService.get('DB_NAME'),
+        entities: [Product],
+        synchronize: false,
+        logging: true,
+        ssl: {
+          rejectUnauthorized: false,
+        },
+      }),
+      inject: [ConfigService],
+    }),
+    TypeOrmModule.forFeature([Product]),
+  ],
+  controllers: [ProductsServiceController],
+  providers: [ProductsServiceService],
+})
+export class ProductsServiceModule {}
