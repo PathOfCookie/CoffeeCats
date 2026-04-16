@@ -2,8 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
+import { Product, Cat, User } from '../types';
 
-// Типы данных
+// Типы для дашборда
 interface DashboardStats {
   catsInCafe: number;
   catsAdopted: number;
@@ -17,109 +19,31 @@ interface DashboardStats {
   pendingAdopters: number;
 }
 
-interface RecentCat {
-  id: string;
-  name: string;
-  age: number;
-  color: string;
-  personality: string;
-  status: 'in_cafe' | 'reserved' | 'adopted';
-}
-
-interface LowStockItem {
-  id: string;
-  name: string;
-  stock: number;
-  unit: string;
-  minQuantity: number;
-  category: string;
-}
-
-// Мок-данные
-const mockStats: DashboardStats = {
-  catsInCafe: 4,
-  catsAdopted: 2,
-  coffeeToday: 42,
-  teaToday: 18,
-  volunteers: 3,
-  baristas: 2,
-  workers: 1,
-  lowStockItems: 3,
-  criticalStockItems: 1,
-  pendingAdopters: 2
-};
-
-const mockRecentCats: RecentCat[] = [
-  {
-    id: '1',
-    name: 'Барсик',
-    age: 2,
-    color: 'рыжий',
-    personality: 'Любит спать на мешках с кофе',
-    status: 'in_cafe'
-  },
-  {
-    id: '2',
-    name: 'Муся',
-    age: 1,
-    color: 'серая',
-    personality: 'Обожает коробки',
-    status: 'in_cafe'
-  },
-  {
-    id: '3',
-    name: 'Снежок',
-    age: 3,
-    color: 'белый',
-    personality: 'Хитрый, ворует молоко',
-    status: 'adopted'
-  },
-  {
-    id: '4',
-    name: 'Карамелька',
-    age: 1,
-    color: 'рыжая',
-    personality: 'Игривая, любит солнечных зайчиков',
-    status: 'reserved'
-  }
-];
-
-const mockLowStock: LowStockItem[] = [
-  {
-    id: '1',
-    name: 'Корм для котиков',
-    stock: 1.2,
-    unit: 'кг',
-    minQuantity: 3,
-    category: 'litter'
-  },
-  {
-    id: '2',
-    name: 'Наполнитель',
-    stock: 2,
-    unit: 'кг',
-    minQuantity: 5,
-    category: 'litter'
-  },
-  {
-    id: '3',
-    name: 'Зерна эспрессо',
-    stock: 1.5,
-    unit: 'кг',
-    minQuantity: 2,
-    category: 'coffee'
-  }
-];
-
 const Dashboard: React.FC = () => {
-  const [stats, setStats] = useState<DashboardStats>(mockStats);
-  const [recentCats, setRecentCats] = useState<RecentCat[]>(mockRecentCats);
-  const [lowStock, setLowStock] = useState<LowStockItem[]>(mockLowStock);
+  const [stats, setStats] = useState<DashboardStats>({
+    catsInCafe: 0,
+    catsAdopted: 0,
+    coffeeToday: 0,
+    teaToday: 0,
+    volunteers: 0,
+    baristas: 0,
+    workers: 0,
+    lowStockItems: 0,
+    criticalStockItems: 0,
+    pendingAdopters: 0
+  });
+  const [recentCats, setRecentCats] = useState<Cat[]>([]);
+  const [lowStock, setLowStock] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   
   const { user, isAdmin, isBarista, isVolunteer } = useAuth();
 
-  // Обновляем время каждую минуту
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
@@ -127,7 +51,70 @@ const Dashboard: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Получаем приветствие в зависимости от времени
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Параллельные запросы к существующим API
+      const [catsRes, productsRes, usersRes] = await Promise.all([
+        api.get<Cat[]>('/cats'),
+        api.get<Product[]>('/products'),
+        api.get<User[]>('/users')
+      ]);
+      
+      const cats = catsRes.data;
+      const products = productsRes.data;
+      const users = usersRes.data;
+      
+      // Подсчёт статистики по котикам
+      const catsInCafe = cats.filter(c => c.status === 'in_cafe').length;
+      const catsAdopted = cats.filter(c => c.status === 'adopted').length;
+      
+      // Подсчёт сотрудников по ролям
+      const volunteers = users.filter(u => u.role === 'volunteer').length;
+      const baristas = users.filter(u => u.role === 'barista').length;
+      const workers = users.filter(u => u.role === 'admin').length;
+      
+      // Подсчёт запасов
+      const lowStockItems = products.filter(p => p.stock <= p.minQuantity).length;
+      const criticalStockItems = products.filter(p => p.stock <= p.minQuantity * 0.5).length;
+      
+      // Товары с низким запасом (первые 3)
+      const lowStockProducts = products
+        .filter(p => p.stock <= p.minQuantity)
+        .sort((a, b) => (a.stock / a.minQuantity) - (b.stock / b.minQuantity))
+        .slice(0, 3);
+      
+      // Последние 4 котика по дате появления
+      const recent = [...cats]
+        .sort((a, b) => new Date(b.arrivalDate).getTime() - new Date(a.arrivalDate).getTime())
+        .slice(0, 4);
+      
+      setStats({
+        catsInCafe,
+        catsAdopted,
+        coffeeToday: 42,        // TODO: когда будет эндпоинт статистики кофе
+        teaToday: 18,          // TODO: когда будет эндпоинт статистики чая
+        volunteers,
+        baristas,
+        workers,
+        lowStockItems,
+        criticalStockItems,
+        pendingAdopters: 0      // TODO: когда будет эндпоинт adoptions
+      });
+      
+      setRecentCats(recent);
+      setLowStock(lowStockProducts);
+      
+    } catch (err) {
+      console.error('Ошибка загрузки дашборда:', err);
+      setError('Не удалось загрузить данные дашборда');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getGreeting = (): string => {
     const hour = currentTime.getHours();
     if (hour < 12) return 'Доброе утро';
@@ -135,7 +122,6 @@ const Dashboard: React.FC = () => {
     return 'Добрый вечер';
   };
 
-  // Получаем роль пользователя для отображения
   const getUserRoleDisplay = (): string => {
     if (isAdmin) return '💼 Work work work';
     if (isBarista) return '☕ Дайте КОФЕ!!!';
@@ -143,14 +129,12 @@ const Dashboard: React.FC = () => {
     return '👤 Гость';
   };
 
-  // Получаем цвет для статуса запаса
   const getStockStatusColor = (stock: number, minQuantity: number): string => {
     if (stock <= minQuantity * 0.5) return '#dc3545';
     if (stock <= minQuantity) return '#ffc107';
     return '#28a745';
   };
 
-  // Получаем иконку для категории
   const getCategoryIcon = (category: string): string => {
     switch (category) {
       case 'coffee': return '☕';
@@ -160,6 +144,20 @@ const Dashboard: React.FC = () => {
       default: return '📦';
     }
   };
+
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        background: 'linear-gradient(135deg, #fae5d7 0%, #e6d5b8 100%)'
+      }}>
+        <div style={{ fontSize: '48px', animation: 'spin 1s infinite' }}>🐱</div>
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -213,14 +211,9 @@ const Dashboard: React.FC = () => {
         zIndex: 0
       }}>🐾</div>
 
-      {/* Основной контент */}
-      <div style={{ 
-        maxWidth: '1400px', 
-        margin: '0 auto',
-        position: 'relative',
-        zIndex: 1
-      }}>
-        {/* Шапка с приветствием */}
+      <div style={{ maxWidth: '1400px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
+        
+        {/* Шапка */}
         <div style={{
           background: 'rgba(255, 248, 235, 0.9)',
           backdropFilter: 'blur(10px)',
@@ -288,12 +281,26 @@ const Dashboard: React.FC = () => {
             <div>
               <h2 style={{ margin: '0 0 5px 0' }}>Мы открылись!</h2>
               <p style={{ opacity: 0.9, margin: 0 }}>
-                Первая неделя работы — уже {stats.coffeeToday + stats.teaToday} чашек счастья
+                {stats.catsInCafe} котиков ждут тебя!
               </p>
             </div>
           </div>
           <span style={{ fontSize: '48px' }}>☕</span>
         </div>
+
+        {/* Ошибка */}
+        {error && (
+          <div style={{
+            background: '#f8d7da',
+            color: '#721c24',
+            padding: '15px',
+            borderRadius: '10px',
+            marginBottom: '20px',
+            textAlign: 'center'
+          }}>
+            {error}
+          </div>
+        )}
 
         {/* Статистика */}
         <div style={{
@@ -382,7 +389,7 @@ const Dashboard: React.FC = () => {
           gap: '30px',
           marginBottom: '30px'
         }}>
-          {/* Левая колонка - котики */}
+          {/* Левая колонка - последние котики */}
           <div style={{
             background: 'rgba(255, 248, 235, 0.9)',
             backdropFilter: 'blur(5px)',
@@ -401,7 +408,7 @@ const Dashboard: React.FC = () => {
                 🐱 Последние поступления
               </h2>
               <Link to="/cats" style={{ color: '#d2691e', textDecoration: 'none' }}>
-        ВСЕ КОТИКИ →
+                ВСЕ КОТИКИ →
               </Link>
             </div>
 
@@ -446,7 +453,7 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Правая колонка - запасы */}
+          {/* Правая колонка - низкий запас */}
           <div style={{
             background: 'rgba(255, 248, 235, 0.9)',
             backdropFilter: 'blur(5px)',
@@ -607,11 +614,14 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Стили */}
       <style>{`
         @keyframes pulse {
           0%, 100% { transform: scale(1); }
           50% { transform: scale(1.02); }
+        }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
         }
       `}</style>
     </div>

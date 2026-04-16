@@ -137,3 +137,30 @@ export interface AuthContextType {
   isBarista: boolean;
   isVolunteer: boolean;
 }
+
+// ... твои существующие типы ...
+
+// Данные для создания товара (без id, createdAt, updatedAt)
+export interface CreateProductData {
+  name: string;
+  description?: string;
+  price: number;
+  category: ProductCategory;
+  stock: number;
+  unit: Unit;
+  minQuantity: number;
+  supplier?: string;
+  location?: string;
+}
+
+// Данные для обновления товара (все поля опциональны)
+export interface UpdateProductData extends Partial<CreateProductData> {}
+
+// Статистика по товарам
+export interface ProductStats {
+  totalProducts: number;
+  lowStockCount: number;
+  criticalStockCount: number;
+  totalValue: number;
+  categoriesCount: Record<ProductCategory, number>;
+}

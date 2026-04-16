@@ -1,41 +1,10 @@
 // src/pages/Cats.tsx
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
+import { Cat, MedicalRecord } from '../types';
 
-// Типы данных
-interface Cat {
-  id: string;
-  name: string;
-  age: number;
-  color: string;
-  gender: 'male' | 'female';
-  breed: string;
-  personality: string;
-  status: 'in_cafe' | 'reserved' | 'adopted';
-  arrivalDate: string;
-  arrivalType: 'found' | 'from_shelter' | 'from_owner';
-  foundLocation?: string;
-  finderName?: string;
-  finderPhone?: string;
-  finderNotes?: string;
-  medicalNotes: MedicalRecord[];
-  adoptedDate?: string;
-  newHome?: string;
-  newOwnerName?: string;
-  newOwnerPhone?: string;
-  newOwnerEmail?: string;
-  image?: string;
-}
-
-interface MedicalRecord {
-  id: string;
-  date: string;
-  type: 'vaccination' | 'treatment' | 'checkup' | 'surgery';
-  description: string;
-  vetName: string;
-  nextDate?: string;
-}
-
+// Тип для потенциального усыновителя (временно, пока не добавили в types)
 interface PotentialAdopter {
   id: string;
   catId: string;
@@ -48,185 +17,12 @@ interface PotentialAdopter {
   createdAt: string;
 }
 
-// Мок-данные
-const mockCats: Cat[] = [
-  {
-    id: '1',
-    name: 'Барсик',
-    age: 2,
-    color: 'рыжий',
-    gender: 'male',
-    breed: 'дворовый',
-    personality: 'Очень ласковый, любит спать на мешках с кофе и требовать вкусняшки',
-    status: 'in_cafe',
-    arrivalDate: '2026-03-01',
-    arrivalType: 'found',
-    foundLocation: 'ул. Ленина, возле кофейни',
-    finderName: 'Елена',
-    finderPhone: '+7 (999) 123-45-67',
-    finderNotes: 'Котик сидел у двери кофейни, замёрзший, но очень дружелюбный',
-    medicalNotes: [
-      {
-        id: 'm1',
-        date: '2026-03-02',
-        type: 'checkup',
-        description: 'Первичный осмотр, здоров, обработан от блох',
-        vetName: 'Доктор Петрова',
-        nextDate: '2026-04-02'
-      },
-      {
-        id: 'm2',
-        date: '2026-03-05',
-        type: 'vaccination',
-        description: 'Комплексная вакцинация',
-        vetName: 'Доктор Петрова',
-        nextDate: '2027-03-05'
-      }
-    ]
-  },
-  {
-    id: '2',
-    name: 'Муся',
-    age: 1,
-    color: 'серая',
-    gender: 'female',
-    breed: 'британская',
-    personality: 'Стеснительная, но обожает коробки и бумажные пакеты',
-    status: 'in_cafe',
-    arrivalDate: '2026-03-03',
-    arrivalType: 'from_owner',
-    finderName: 'Ирина',
-    finderPhone: '+7 (999) 765-43-21',
-    finderNotes: 'Хозяева переезжали и не могли забрать кошку',
-    medicalNotes: [
-      {
-        id: 'm3',
-        date: '2026-03-04',
-        type: 'checkup',
-        description: 'Осмотр, стерилизована, прививки в порядке',
-        vetName: 'Доктор Смирнов'
-      }
-    ]
-  },
-  {
-    id: '3',
-    name: 'Снежок',
-    age: 3,
-    color: 'белый',
-    gender: 'male',
-    breed: 'ангорский',
-    personality: 'Красивый, но хитрый — ворует молоко у бариста',
-    status: 'adopted',
-    arrivalDate: '2026-02-15',
-    arrivalType: 'from_shelter',
-    adoptedDate: '2026-03-10',
-    newHome: 'Семья Петровых',
-    newOwnerName: 'Анна Петрова',
-    newOwnerPhone: '+7 (999) 111-22-33',
-    newOwnerEmail: 'anna@example.com',
-    medicalNotes: [
-      {
-        id: 'm4',
-        date: '2026-02-16',
-        type: 'vaccination',
-        description: 'Вакцинация от бешенства',
-        vetName: 'Доктор Иванов'
-      }
-    ]
-  },
-  {
-    id: '4',
-    name: 'Карамелька',
-    age: 1,
-    color: 'рыжая',
-    gender: 'female',
-    breed: 'дворовая',
-    personality: 'Очень игривая, любит гоняться за солнечными зайчиками',
-    status: 'reserved',
-    arrivalDate: '2026-03-05',
-    arrivalType: 'found',
-    foundLocation: 'Парк Победы',
-    finderName: 'Михаил',
-    finderPhone: '+7 (999) 222-33-44',
-    medicalNotes: [
-      {
-        id: 'm5',
-        date: '2026-03-06',
-        type: 'checkup',
-        description: 'Осмотр, здорова, обработка от паразитов',
-        vetName: 'Доктор Петрова',
-        nextDate: '2026-04-06'
-      }
-    ]
-  },
-  {
-    id: '5',
-    name: 'Тихон',
-    age: 5,
-    color: 'чёрный',
-    gender: 'male',
-    breed: 'сибирский',
-    personality: 'Спокойный, философ, любит сидеть на подоконнике и наблюдать',
-    status: 'in_cafe',
-    arrivalDate: '2026-02-20',
-    arrivalType: 'from_shelter',
-    medicalNotes: [
-      {
-        id: 'm6',
-        date: '2026-02-21',
-        type: 'treatment',
-        description: 'Лечение зубов',
-        vetName: 'Доктор Смирнов'
-      },
-      {
-        id: 'm7',
-        date: '2026-03-01',
-        type: 'checkup',
-        description: 'Контрольный осмотр, всё хорошо',
-        vetName: 'Доктор Смирнов'
-      }
-    ]
-  }
-];
-
-const mockPotentialAdopters: PotentialAdopter[] = [
-  {
-    id: 'a1',
-    catId: '2',
-    name: 'Екатерина',
-    phone: '+7 (999) 333-44-55',
-    email: 'ekaterina@example.com',
-    status: 'interested',
-    notes: 'Очень хочет серую кошечку, есть опыт содержания',
-    createdAt: '2026-03-15'
-  },
-  {
-    id: 'a2',
-    catId: '4',
-    name: 'Дмитрий',
-    phone: '+7 (999) 444-55-66',
-    email: 'dmitry@example.com',
-    status: 'meeting_scheduled',
-    meetingDate: '2026-03-20',
-    notes: 'Придёт знакомиться с Карамелькой, живёт один, есть балкон',
-    createdAt: '2026-03-16'
-  },
-  {
-    id: 'a3',
-    catId: '3',
-    name: 'Анна Петрова',
-    phone: '+7 (999) 111-22-33',
-    email: 'anna@example.com',
-    status: 'approved',
-    notes: 'Уже забрали Снежка, отличная семья',
-    createdAt: '2026-03-05'
-  }
-];
-
 const Cats: React.FC = () => {
-  const [cats, setCats] = useState<Cat[]>(mockCats);
-  const [adopters, setAdopters] = useState<PotentialAdopter[]>(mockPotentialAdopters);
-  const [filteredCats, setFilteredCats] = useState<Cat[]>(mockCats);
+  const [cats, setCats] = useState<Cat[]>([]);
+  const [adopters, setAdopters] = useState<PotentialAdopter[]>([]);
+  const [filteredCats, setFilteredCats] = useState<Cat[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedCat, setSelectedCat] = useState<Cat | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [showAdopterForm, setShowAdopterForm] = useState(false);
@@ -237,6 +33,13 @@ const Cats: React.FC = () => {
   
   const { isAdmin, isVolunteer } = useAuth();
 
+  // Загрузка данных с бэкенда
+  useEffect(() => {
+    fetchCats();
+    fetchAdopters();
+  }, []);
+
+  // Фильтрация котиков
   useEffect(() => {
     let filtered = [...cats];
 
@@ -255,6 +58,74 @@ const Cats: React.FC = () => {
     setFilteredCats(filtered);
   }, [cats, searchTerm, filterStatus]);
 
+  const fetchCats = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get<Cat[]>('/cats');
+      setCats(response.data);
+    } catch (err) {
+      console.error('Ошибка загрузки котиков:', err);
+      setError('Не удалось загрузить список котиков');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchAdopters = async () => {
+    try {
+      const response = await api.get<PotentialAdopter[]>('/adoptions');
+      setAdopters(response.data);
+    } catch (err) {
+      console.error('Ошибка загрузки кандидатов:', err);
+    }
+  };
+
+  const handleAddCat = async (catData: Partial<Cat>) => {
+    try {
+      const response = await api.post<Cat>('/cats', catData);
+      setCats([...cats, response.data]);
+      setShowAddForm(false);
+    } catch (err) {
+      console.error('Ошибка добавления котика:', err);
+      alert('Не удалось добавить котика');
+    }
+  };
+
+  const handleUpdateCat = async (id: string, catData: Partial<Cat>) => {
+    try {
+      const response = await api.patch<Cat>(`/cats/${id}`, catData);
+      setCats(cats.map(cat => cat.id === id ? response.data : cat));
+      setSelectedCat(null);
+    } catch (err) {
+      console.error('Ошибка обновления котика:', err);
+      alert('Не удалось обновить данные котика');
+    }
+  };
+
+  const handleDeleteCat = async (id: string) => {
+    if (!isAdmin) return;
+    if (!window.confirm('Вы уверены, что хотите удалить этого котика?')) return;
+
+    try {
+      await api.delete(`/cats/${id}`);
+      setCats(cats.filter(cat => cat.id !== id));
+    } catch (err) {
+      console.error('Ошибка удаления котика:', err);
+      alert('Не удалось удалить котика');
+    }
+  };
+
+  const handleAddMedicalRecord = async (catId: string, record: MedicalRecord) => {
+    try {
+      const response = await api.post<Cat>(`/cats/${catId}/medical`, record);
+      setCats(cats.map(cat => cat.id === catId ? response.data : cat));
+      setShowMedicalForm(false);
+    } catch (err) {
+      console.error('Ошибка добавления медицинской записи:', err);
+      alert('Не удалось добавить запись');
+    }
+  };
+
   // Статистика
   const stats = {
     total: cats.length,
@@ -262,7 +133,7 @@ const Cats: React.FC = () => {
     reserved: cats.filter(c => c.status === 'reserved').length,
     adopted: cats.filter(c => c.status === 'adopted').length,
     needVaccination: cats.filter(c => 
-      c.medicalNotes.some(m => m.nextDate && new Date(m.nextDate) <= new Date())
+      c.medicalHistory?.some(m => m.nextDate && new Date(m.nextDate) <= new Date())
     ).length,
     pendingAdopters: adopters.filter(a => a.status === 'interested' || a.status === 'meeting_scheduled').length
   };
@@ -303,6 +174,14 @@ const Cats: React.FC = () => {
       default: return type;
     }
   };
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <div style={{ fontSize: '48px', animation: 'spin 1s infinite' }}>🐱</div>
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -512,6 +391,12 @@ const Cats: React.FC = () => {
             </div>
 
             {/* Сетка котиков */}
+            {error && (
+              <div style={{ background: '#f8d7da', color: '#721c24', padding: '15px', borderRadius: '10px', marginBottom: '20px' }}>
+                {error}
+              </div>
+            )}
+
             <div style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
@@ -519,7 +404,7 @@ const Cats: React.FC = () => {
             }}>
               {filteredCats.map(cat => {
                 const status = getStatusBadge(cat.status);
-                const lastMedical = cat.medicalNotes[cat.medicalNotes.length - 1];
+                const lastMedical = cat.medicalHistory?.[cat.medicalHistory.length - 1];
                 
                 return (
                   <div
@@ -600,7 +485,7 @@ const Cats: React.FC = () => {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                         <span style={{ fontWeight: 600, color: '#5a3e2b' }}>💉 Последние процедуры:</span>
                         <span style={{ fontSize: '12px', color: '#a67b5b' }}>
-                          {cat.medicalNotes.length} записей
+                          {cat.medicalHistory?.length || 0} записей
                         </span>
                       </div>
                       
@@ -648,10 +533,78 @@ const Cats: React.FC = () => {
                         </div>
                       </div>
                     )}
+
+                    {/* Кнопки действий (если админ) */}
+                    {isAdmin && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '15px',
+                        right: '15px',
+                        display: 'flex',
+                        gap: '5px'
+                      }}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedCat(cat);
+                          }}
+                          style={{
+                            background: 'rgba(255,255,255,0.9)',
+                            border: 'none',
+                            borderRadius: '20px',
+                            padding: '5px 10px',
+                            cursor: 'pointer',
+                            fontSize: '14px'
+                          }}
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteCat(cat.id);
+                          }}
+                          style={{
+                            background: 'rgba(255,255,255,0.9)',
+                            border: 'none',
+                            borderRadius: '20px',
+                            padding: '5px 10px',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            color: '#dc3545'
+                          }}
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
+
+            {filteredCats.length === 0 && !error && (
+              <div style={{ textAlign: 'center', padding: '50px', color: '#a67b5b' }}>
+                <div style={{ fontSize: '48px', marginBottom: '20px' }}>😿</div>
+                <h3>Котики не найдены</h3>
+                {(isAdmin || isVolunteer) && (
+                  <button
+                    onClick={() => setShowAddForm(true)}
+                    style={{
+                      marginTop: '20px',
+                      padding: '10px 20px',
+                      background: '#8b4513',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '50px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Добавить первого котика
+                  </button>
+                )}
+              </div>
+            )}
           </>
         ) : (
           <>
@@ -752,30 +705,14 @@ const Cats: React.FC = () => {
             </div>
           </>
         )}
-
-        {filteredCats.length === 0 && activeTab === 'cats' && (
-          <div style={{ textAlign: 'center', padding: '50px', color: '#a67b5b' }}>
-            <div style={{ fontSize: '48px', marginBottom: '20px' }}>😿</div>
-            <h3>Котики не найдены</h3>
-            {(isAdmin || isVolunteer) && (
-              <button
-                onClick={() => setShowAddForm(true)}
-                style={{
-                  marginTop: '20px',
-                  padding: '10px 20px',
-                  background: '#8b4513',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '50px',
-                  cursor: 'pointer'
-                }}
-              >
-                Добавить первого котика
-              </button>
-            )}
-          </div>
-        )}
       </div>
+
+      <style>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 };

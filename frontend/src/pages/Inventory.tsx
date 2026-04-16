@@ -1,117 +1,25 @@
+// src/pages/Inventory.tsx
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
 import { Product } from '../types';
 
-// Временные мок-данные для склада (позже заменим на API)
-const mockInventory: Product[] = [
-  {
-    id: '1',
-    name: 'Зерна эспрессо (Италия)',
-    description: 'Темная обжарка, 100% арабика',
-    price: 1200,
-    category: 'coffee',
-    stock: 5.2,
-    unit: 'кг',
-    minQuantity: 2,
-    createdAt: '2026-03-01',
-    updatedAt: '2026-03-19'
-  },
-  {
-    id: '2',
-    name: 'Молоко 3.2%',
-    description: 'Свежее, местное производство',
-    price: 80,
-    category: 'food',
-    stock: 12,
-    unit: 'л',
-    minQuantity: 5,
-    createdAt: '2026-03-01',
-    updatedAt: '2026-03-19'
-  },
-  {
-    id: '3',
-    name: 'Сироп карамельный',
-    description: 'Соленая карамель',
-    price: 350,
-    category: 'coffee',
-    stock: 0.8,
-    unit: 'л',
-    minQuantity: 1,
-    createdAt: '2026-03-01',
-    updatedAt: '2026-03-19'
-  },
-  {
-    id: '4',
-    name: 'Корм для котиков (сухой)',
-    description: 'Премиум класс, с лососем',
-    price: 450,
-    category: 'litter',
-    stock: 3.5,
-    unit: 'кг',
-    minQuantity: 5,
-    createdAt: '2026-03-01',
-    updatedAt: '2026-03-19'
-  },
-  {
-    id: '5',
-    name: 'Наполнитель древесный',
-    description: 'Экологичный, комкующийся',
-    price: 300,
-    category: 'litter',
-    stock: 2,
-    unit: 'кг',
-    minQuantity: 8,
-    createdAt: '2026-03-01',
-    updatedAt: '2026-03-19'
-  },
-  {
-    id: '6',
-    name: 'Чашки бумажные',
-    description: '300 мл, с крышками',
-    price: 15,
-    category: 'other',
-    stock: 240,
-    unit: 'шт',
-    minQuantity: 100,
-    createdAt: '2026-03-01',
-    updatedAt: '2026-03-19'
-  },
-  {
-    id: '7',
-    name: 'Вакцина для котиков',
-    description: 'Комплексная',
-    price: 1500,
-    category: 'medicine',
-    stock: 3,
-    unit: 'шт',
-    minQuantity: 5,
-    createdAt: '2026-03-01',
-    updatedAt: '2026-03-19'
-  },
-  {
-    id: '8',
-    name: 'Чай Эрл Грей',
-    description: 'Рассыпной, 100г',
-    price: 280,
-    category: 'tea',
-    stock: 0.3,
-    unit: 'кг',
-    minQuantity: 0.5,
-    createdAt: '2026-03-01',
-    updatedAt: '2026-03-19'
-  }
-];
-
 const Inventory: React.FC = () => {
-  const [inventory, setInventory] = useState<Product[]>(mockInventory);
-  const [filteredItems, setFilteredItems] = useState<Product[]>(mockInventory);
-  const [loading, setLoading] = useState(false);
+  const [inventory, setInventory] = useState<Product[]>([]);
+  const [filteredItems, setFilteredItems] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('name');
   
   const { isAdmin } = useAuth();
+
+  // Загрузка данных с бэкенда
+  useEffect(() => {
+    fetchInventory();
+  }, []);
 
   // Фильтрация и сортировка
   useEffect(() => {
@@ -156,6 +64,51 @@ const Inventory: React.FC = () => {
     setFilteredItems(filtered);
   }, [inventory, searchTerm, categoryFilter, statusFilter, sortBy]);
 
+  const fetchInventory = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get<Product[]>('/products');
+      setInventory(response.data);
+    } catch (err) {
+      console.error('Ошибка загрузки склада:', err);
+      setError('Не удалось загрузить данные склада');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Обновление количества
+  const handleUpdateStock = async (id: string, newStock: number) => {
+    if (!isAdmin) return;
+    
+    try {
+      const response = await api.patch<Product>(`/products/${id}`, { stock: newStock });
+      setInventory(prev =>
+        prev.map(item =>
+          item.id === id ? response.data : item
+        )
+      );
+    } catch (err) {
+      console.error('Ошибка обновления количества:', err);
+      alert('Не удалось обновить количество товара');
+    }
+  };
+
+  // Удаление товара
+  const handleDeleteItem = async (id: string) => {
+    if (!isAdmin) return;
+    
+    if (!window.confirm('Вы уверены, что хотите удалить этот товар?')) return;
+
+    try {
+      await api.delete(`/products/${id}`);
+      setInventory(prev => prev.filter(item => item.id !== id));
+    } catch (err) {
+      console.error('Ошибка удаления товара:', err);
+      alert('Не удалось удалить товар');
+    }
+  };
+
   // Получение статуса запаса
   const getStockStatus = (item: Product): { text: string; type: string; color: string } => {
     if (item.stock <= item.minQuantity * 0.5) {
@@ -191,26 +144,6 @@ const Inventory: React.FC = () => {
       case 'litter': return 'Для котиков';
       case 'medicine': return 'Лекарства';
       default: return 'Другое';
-    }
-  };
-
-  // Обновление количества
-  const handleUpdateStock = (id: string, newStock: number) => {
-    if (!isAdmin) return;
-    
-    setInventory(prev =>
-      prev.map(item =>
-        item.id === id ? { ...item, stock: newStock, updatedAt: new Date().toISOString() } : item
-      )
-    );
-  };
-
-  // Удаление товара
-  const handleDeleteItem = (id: string) => {
-    if (!isAdmin) return;
-    
-    if (window.confirm('Вы уверены, что хотите удалить этот товар?')) {
-      setInventory(prev => prev.filter(item => item.id !== id));
     }
   };
 
@@ -347,6 +280,20 @@ const Inventory: React.FC = () => {
             <div style={{ color: '#a67b5b' }}>Мало</div>
           </div>
         </div>
+
+        {/* Ошибка */}
+        {error && (
+          <div style={{
+            background: '#f8d7da',
+            color: '#721c24',
+            padding: '15px',
+            borderRadius: '10px',
+            marginBottom: '20px',
+            textAlign: 'center'
+          }}>
+            {error}
+          </div>
+        )}
 
         {/* Фильтры */}
         <div style={{
@@ -567,7 +514,7 @@ const Inventory: React.FC = () => {
             );
           })}
 
-          {filteredItems.length === 0 && (
+          {filteredItems.length === 0 && !error && (
             <div style={{ textAlign: 'center', padding: '50px', color: '#a67b5b' }}>
               <div style={{ fontSize: '48px', marginBottom: '20px' }}>📭</div>
               <h3>Товары не найдены</h3>
