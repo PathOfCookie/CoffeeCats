@@ -1,10 +1,11 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import cookieParser from 'cookie-parser';
-import helmet from 'helmet';
-import compression from 'compression';
 import { ApiServiceModule } from './api-service.module';
+
+const cookieParser = require('cookie-parser');
+const helmet = require('helmet');
+const compression = require('compression');
 
 async function bootstrap() {
   const app = await NestFactory.create(ApiServiceModule);
@@ -12,8 +13,9 @@ async function bootstrap() {
   app.use(helmet());
   app.use(compression());
   app.use(cookieParser());
+  
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: true,
     credentials: true,
   });
 
