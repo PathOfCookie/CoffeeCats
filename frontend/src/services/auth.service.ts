@@ -14,6 +14,7 @@ class AuthService {
   }
 
   async login(email: string, password: string, rememberMe: boolean = false): Promise<AuthResponse> {
+      
     const response = await apiService.post<AuthResponse>('/auth/login', { email, password });
     if (response.data.accessToken) {
       this.setTokens(response.data.accessToken, response.data.refreshToken, rememberMe);
