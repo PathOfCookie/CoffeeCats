@@ -41,7 +41,7 @@ describe('AuthServiceService', () => {
       mockUserRepository.findOne.mockResolvedValue(user);
       jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
 
-      const result = await service.validateUser('test@test.com', 'password');
+      const result = await service.validateUserCredentials('test@test.com', 'password');
       expect(result).toEqual(user);
     });
   });

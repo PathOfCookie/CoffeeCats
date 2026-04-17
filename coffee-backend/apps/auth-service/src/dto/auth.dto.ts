@@ -1,39 +1,21 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsString, MinLength, IsOptional } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsOptional, IsNumber } from 'class-validator';
 
 export class RegisterDto {
-  @ApiProperty({ example: 'Елизавета', description: 'Имя пользователя' })
-  @IsString()
-  @MinLength(2)
-  name: string;
-
-  @ApiProperty({ example: 'user@coffee.com', description: 'Email' })
-  @IsEmail()
-  email: string;
-
-  @ApiProperty({ example: 'password123', description: 'Пароль' })
-  @IsString()
-  @MinLength(6)
-  password: string;
-
-  @ApiProperty({ example: '+7 (999) 123-45-67', required: false, description: 'Телефон' })
-  @IsOptional()
-  @IsString()
-  phone?: string;
+  @IsString() @MinLength(2) name: string;
+  @IsEmail() email: string;
+  @IsString() @MinLength(6) password: string;
+  @IsOptional() @IsString() phone?: string;
 }
 
 export class LoginDto {
-  @ApiProperty({ example: 'eliza@coffee.com', description: 'Email' })
-  @IsEmail()
-  email: string;
-
-  @ApiProperty({ example: 'password123', description: 'Пароль' })
-  @IsString()
-  password: string;
+  @IsEmail() email: string;
+  @IsString() password: string;
 }
 
 export class RefreshTokenDto {
-  @ApiProperty({ example: 'eyJhbGciOiJIUzI1NiIs...', description: 'Refresh токен' })
-  @IsString()
-  refreshToken: string;
+  @IsString() refreshToken: string;
+}
+
+export class ValidateUserDto {
+  @IsNumber() userId: number;
 }

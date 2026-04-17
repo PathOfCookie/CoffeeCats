@@ -1,30 +1,49 @@
+// src/App.tsx
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
-import PrivateRoute from './components/PrivateRoute';
-import Login from './pages/Login';
-import Register from './pages/Register';
+import { Provider } from 'react-redux';
+import { store } from './store';
+import AuthPage from './pages/AuthPage';
 import Dashboard from './pages/Dashboard';
-import Products from './pages/Products';
-import Inventory from './pages/Inventory';
-import Cats from './pages/Cats';
+import Profile from './pages/Profile';
+
+
+// Компонент для защиты приватных маршрутов
+const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const isAuthenticated = !!localStorage.getItem('accessToken');
+  return isAuthenticated ? <>{children}</> : <Navigate to="/" replace />;
+};
 
 const App: React.FC = () => {
   return (
-    <BrowserRouter>
-      <AuthProvider>
+    <Provider store={store}>
+      <BrowserRouter>
         <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-          <Route path="/products" element={<PrivateRoute><Products /></PrivateRoute>} />
-          <Route path="/inventory" element={<PrivateRoute><Inventory /></PrivateRoute>} />
-          <Route path="/cats" element={<PrivateRoute><Cats /></PrivateRoute>} />
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          {/* Главная страница с формой входа/регистрации */}
+          <Route path="/" element={<AuthPage />} />
+          
+          {/* Защищённый дашборд */}
+          <Route
+            path="/dashboard"
+            element={
+              <PrivateRoute>
+                <Dashboard />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <PrivateRoute>
+                <Profile />
+              </PrivateRoute>
+            }
+          />
+          {/* Редирект на дашборд для всех остальных маршрутов */}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
-      </AuthProvider>
-    </BrowserRouter>
+      </BrowserRouter>
+    </Provider>
   );
 };
 

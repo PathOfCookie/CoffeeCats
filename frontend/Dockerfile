@@ -1,20 +1,20 @@
 # Этап 1: Сборка React приложения
-FROM node:18-alpine AS build
+FROM node:20-alpine AS build
 
 # Устанавливаем рабочую директорию
 WORKDIR /app
 
-# Копируем package.json и package-lock.json
-COPY package*.json ./
+# Копируем package.json
+COPY package.json ./
 
-# Устанавливаем зависимости
-RUN npm ci --only=production
+# Устанавливаем зависимости через yarn
+RUN yarn install --network-timeout 100000
 
 # Копируем исходный код
 COPY . .
 
 # Собираем приложение
-RUN npm run build
+RUN yarn build
 
 # Этап 2: Nginx сервер для раздачи статики
 FROM nginx:alpine

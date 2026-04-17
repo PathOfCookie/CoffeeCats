@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  auth-service:
+    build:
+      context: ./coffee-backend
+      dockerfile: apps/auth-service/Dockerfile
+      target: production
+    container_name: coffee-backend-auth
+    ports:
+      - "3001:3001"
+    env_file:
+      - ./coffee-backend/.env
+    networks:
+      - coffee-network
+
+  main-service:
+    build:
+      context: ./coffee-backend
+      dockerfile: apps/main-service/Dockerfile
+      target: production
+    container_name: coffee-backend-main
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./coffee-backend/.env
+    networks:
+      - coffee-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: coffee-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - auth-service
+      - main-service
+    networks:
+      - coffee-network
+
+networks:
+  coffee-network:
+    driver: bridge
