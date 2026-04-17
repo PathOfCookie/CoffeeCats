@@ -1,6 +1,6 @@
 // src/components/ProductForm.tsx
 import React, { useState } from 'react';
-import { CreateProductData, ProductCategory, Unit } from '../types';
+import { CreateProductData, ProductCategory, Unit } from '../store';
 
 interface ProductFormProps {
   initialData?: Partial<CreateProductData>;
