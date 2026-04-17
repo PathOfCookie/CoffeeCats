@@ -5,6 +5,8 @@ import { Provider } from 'react-redux';
 import { store } from './store';
 import AuthPage from './pages/AuthPage';
 import Dashboard from './pages/Dashboard';
+import Profile from './pages/Profile';
+
 
 // Компонент для защиты приватных маршрутов
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -29,7 +31,14 @@ const App: React.FC = () => {
               </PrivateRoute>
             }
           />
-          
+          <Route
+            path="/profile"
+            element={
+              <PrivateRoute>
+                <Profile />
+              </PrivateRoute>
+            }
+          />
           {/* Редирект на дашборд для всех остальных маршрутов */}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
