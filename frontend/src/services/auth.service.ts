@@ -1,11 +1,30 @@
 // src/services/auth.service.ts
-import { apiService } from './api';
+import api from './api';
 import Cookies from 'js-cookie';
-import { AuthResponse, RegisterData, User } from '../types';
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: 'admin' | 'barista' | 'volunteer';
+  createdAt?: string;
+}
+
+export interface AuthResponse {
+  accessToken: string;
+  refreshToken: string;
+  user: User;
+}
 
 class AuthService {
-  async register(data: RegisterData): Promise<AuthResponse> {
-    const response = await apiService.post<AuthResponse>('/auth/register', data);
+  async register(data: {
+    name: string;
+    email: string;
+    password: string;
+    role: string;
+    phone?: string;
+  }): Promise<AuthResponse> {
+    const response = await api.post('/auth/register', data);
     if (response.data.accessToken) {
       this.setTokens(response.data.accessToken, response.data.refreshToken, false);
       this.setUser(response.data.user);
@@ -14,8 +33,7 @@ class AuthService {
   }
 
   async login(email: string, password: string, rememberMe: boolean = false): Promise<AuthResponse> {
-      
-    const response = await apiService.post<AuthResponse>('/auth/login', { email, password });
+    const response = await api.post('/auth/login', { email, password });
     if (response.data.accessToken) {
       this.setTokens(response.data.accessToken, response.data.refreshToken, rememberMe);
       this.setUser(response.data.user);
@@ -23,19 +41,24 @@ class AuthService {
     return response.data;
   }
 
-  async refreshToken(): Promise<AuthResponse | null> {
+  async refreshToken(): Promise<{ accessToken: string; refreshToken: string } | null> {
     const refreshToken = this.getRefreshToken();
     if (!refreshToken) return null;
     
     try {
-      const response = await apiService.post<AuthResponse>('/auth/refresh', { refreshToken });
+      const response = await api.post('/auth/refresh', { refreshToken });
       this.setTokens(response.data.accessToken, response.data.refreshToken, false);
-      if (response.data.user) this.setUser(response.data.user);
       return response.data;
     } catch {
       this.logout();
       return null;
     }
+  }
+
+  // ⚠️ Нет эндпоинта /auth/me — получаем пользователя из localStorage
+  getCurrentUser(): User | null {
+    const user = localStorage.getItem('user');
+    return user ? JSON.parse(user) : null;
   }
 
   logout(): void {
@@ -57,11 +80,6 @@ class AuthService {
 
   setUser(user: User): void {
     localStorage.setItem('user', JSON.stringify(user));
-  }
-
-  getCurrentUser(): User | null {
-    const user = localStorage.getItem('user');
-    return user ? JSON.parse(user) : null;
   }
 
   getAccessToken(): string | null {

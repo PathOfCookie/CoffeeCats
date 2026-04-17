@@ -1,7 +1,19 @@
 // src/context/AuthContext.tsx
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
-import authService from '../services/auth.service';
-import { User, AuthContextType, RegisterData } from '../types';
+import authService, { User } from '../services/auth.service';
+
+interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+  error: string | null;
+  login: (email: string, password: string, rememberMe: boolean) => Promise<void>;
+  register: (data: any) => Promise<void>;
+  logout: () => void;
+  isAuthenticated: boolean;
+  isAdmin: boolean;
+  isBarista: boolean;
+  isVolunteer: boolean;
+}
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -11,19 +23,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const initAuth = async () => {
-      const accessToken = authService.getAccessToken();
-      const refreshToken = authService.getRefreshToken();
-      
-      if (accessToken) {
-        const currentUser = authService.getCurrentUser();
-        if (currentUser) setUser(currentUser);
-      } else if (refreshToken) {
-        await refreshSession();
-      }
-      setLoading(false);
-    };
-    initAuth();
+    // ⚠️ Нет /auth/me — просто берём пользователя из localStorage
+    const currentUser = authService.getCurrentUser();
+    if (currentUser) {
+      setUser(currentUser);
+    }
+    setLoading(false);
   }, []);
 
   const login = async (email: string, password: string, rememberMe: boolean) => {
@@ -31,32 +36,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setError(null);
       const data = await authService.login(email, password, rememberMe);
       setUser(data.user);
-      return data;
     } catch (err: any) {
       setError(err.response?.data?.message || 'Ошибка входа');
       throw err;
     }
   };
 
-  const register = async (data: RegisterData) => {
+  const register = async (data: any) => {
     try {
       setError(null);
       const response = await authService.register(data);
       setUser(response.user);
-      return response;
     } catch (err: any) {
       setError(err.response?.data?.message || 'Ошибка регистрации');
       throw err;
-    }
-  };
-
-  const refreshSession = async () => {
-    try {
-      const data = await authService.refreshToken();
-      if (data?.user) setUser(data.user);
-      return !!data;
-    } catch {
-      return false;
     }
   };
 
@@ -74,7 +67,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         login,
         register,
         logout,
-        refreshSession,
         isAuthenticated: authService.isAuthenticated(),
         isAdmin: user?.role === 'admin',
         isBarista: user?.role === 'barista',

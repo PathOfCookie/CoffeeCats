@@ -1,308 +1,71 @@
 // src/pages/Dashboard.tsx
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import api from '../services/api';
-import { Product, Cat, User } from '../types';
+import React, { useEffect } from 'react';
+import { observer } from 'mobx-react-lite';
+import { useNavigate } from 'react-router-dom';
+import { useStores } from '../context/MobXContext';
 
-// Типы для дашборда
-interface DashboardStats {
-  catsInCafe: number;
-  catsAdopted: number;
-  coffeeToday: number;
-  teaToday: number;
-  volunteers: number;
-  baristas: number;
-  workers: number;
-  lowStockItems: number;
-  criticalStockItems: number;
-  pendingAdopters: number;
-}
-
-const Dashboard: React.FC = () => {
-  const [stats, setStats] = useState<DashboardStats>({
-    catsInCafe: 0,
-    catsAdopted: 0,
-    coffeeToday: 0,
-    teaToday: 0,
-    volunteers: 0,
-    baristas: 0,
-    workers: 0,
-    lowStockItems: 0,
-    criticalStockItems: 0,
-    pendingAdopters: 0
-  });
-  const [recentCats, setRecentCats] = useState<Cat[]>([]);
-  const [lowStock, setLowStock] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [currentTime, setCurrentTime] = useState(new Date());
-  
-  const { user, isAdmin, isBarista, isVolunteer } = useAuth();
+const Dashboard: React.FC = observer(() => {
+  const { auth, products, cats, inventory } = useStores();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 60000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Параллельные запросы к существующим API
-      const [catsRes, productsRes, usersRes] = await Promise.all([
-        api.get<Cat[]>('/cats'),
-        api.get<Product[]>('/products'),
-        api.get<User[]>('/users')
-      ]);
-      
-      const cats = catsRes.data;
-      const products = productsRes.data;
-      const users = usersRes.data;
-      
-      // Подсчёт статистики по котикам
-      const catsInCafe = cats.filter(c => c.status === 'in_cafe').length;
-      const catsAdopted = cats.filter(c => c.status === 'adopted').length;
-      
-      // Подсчёт сотрудников по ролям
-      const volunteers = users.filter(u => u.role === 'volunteer').length;
-      const baristas = users.filter(u => u.role === 'barista').length;
-      const workers = users.filter(u => u.role === 'admin').length;
-      
-      // Подсчёт запасов
-      const lowStockItems = products.filter(p => p.stock <= p.minQuantity).length;
-      const criticalStockItems = products.filter(p => p.stock <= p.minQuantity * 0.5).length;
-      
-      // Товары с низким запасом (первые 3)
-      const lowStockProducts = products
-        .filter(p => p.stock <= p.minQuantity)
-        .sort((a, b) => (a.stock / a.minQuantity) - (b.stock / b.minQuantity))
-        .slice(0, 3);
-      
-      // Последние 4 котика по дате появления
-      const recent = [...cats]
-        .sort((a, b) => new Date(b.arrivalDate).getTime() - new Date(a.arrivalDate).getTime())
-        .slice(0, 4);
-      
-      setStats({
-        catsInCafe,
-        catsAdopted,
-        coffeeToday: 42,        // TODO: когда будет эндпоинт статистики кофе
-        teaToday: 18,          // TODO: когда будет эндпоинт статистики чая
-        volunteers,
-        baristas,
-        workers,
-        lowStockItems,
-        criticalStockItems,
-        pendingAdopters: 0      // TODO: когда будет эндпоинт adoptions
-      });
-      
-      setRecentCats(recent);
-      setLowStock(lowStockProducts);
-      
-    } catch (err) {
-      console.error('Ошибка загрузки дашборда:', err);
-      setError('Не удалось загрузить данные дашборда');
-    } finally {
-      setLoading(false);
+    if (auth.isAuthenticated) {
+      products.fetchProducts();
+      cats.fetchCats();
+      inventory.fetchInventory(); // ✅ добавляем загрузку склада
     }
+  }, [auth.isAuthenticated]);
+
+  const handleLogout = () => {
+    auth.logout();
+    navigate('/');
   };
 
-  const getGreeting = (): string => {
-    const hour = currentTime.getHours();
-    if (hour < 12) return 'Доброе утро';
-    if (hour < 18) return 'Добрый день';
-    return 'Добрый вечер';
-  };
-
-  const getUserRoleDisplay = (): string => {
-    if (isAdmin) return '💼 Work work work';
-    if (isBarista) return '☕ Дайте КОФЕ!!!';
-    if (isVolunteer) return '😺 КОТИКИ!!!';
-    return '👤 Гость';
-  };
-
-  const getStockStatusColor = (stock: number, minQuantity: number): string => {
-    if (stock <= minQuantity * 0.5) return '#dc3545';
-    if (stock <= minQuantity) return '#ffc107';
-    return '#28a745';
-  };
-
-  const getCategoryIcon = (category: string): string => {
-    switch (category) {
-      case 'coffee': return '☕';
-      case 'tea': return '🫖';
-      case 'litter': return '🧻';
-      case 'food': return '🥐';
-      default: return '📦';
-    }
-  };
-
-  if (loading) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        background: 'linear-gradient(135deg, #fae5d7 0%, #e6d5b8 100%)'
-      }}>
-        <div style={{ fontSize: '48px', animation: 'spin 1s infinite' }}>🐱</div>
-      </div>
-    );
-  }
+  // Получаем товары с низким запасом
+  const lowStockProducts = products.items.filter(p => p.stock <= p.minQuantity);
+  const criticalStockProducts = products.items.filter(p => p.stock <= p.minQuantity * 0.5);
 
   return (
     <div style={{
       minHeight: '100vh',
       background: 'linear-gradient(135deg, #fae5d7 0%, #e6d5b8 100%)',
-      padding: '30px',
-      position: 'relative',
-      overflow: 'hidden'
+      padding: '30px'
     }}>
-      {/* Декоративные элементы */}
-      <div style={{
-        position: 'fixed',
-        width: '300px',
-        height: '300px',
-        top: '-100px',
-        right: '-100px',
-        background: '#d2691e',
-        opacity: 0.15,
-        borderRadius: '50%',
-        filter: 'blur(20px)',
-        zIndex: 0
-      }}></div>
-      <div style={{
-        position: 'fixed',
-        width: '400px',
-        height: '400px',
-        bottom: '-150px',
-        left: '-150px',
-        background: '#8b4513',
-        opacity: 0.1,
-        borderRadius: '50%',
-        filter: 'blur(20px)',
-        zIndex: 0
-      }}></div>
-      <div style={{
-        position: 'fixed',
-        fontSize: '60px',
-        top: '20%',
-        left: '5%',
-        opacity: 0.1,
-        transform: 'rotate(-10deg)',
-        zIndex: 0
-      }}>🐾</div>
-      <div style={{
-        position: 'fixed',
-        fontSize: '60px',
-        bottom: '20%',
-        right: '5%',
-        opacity: 0.1,
-        transform: 'rotate(25deg)',
-        zIndex: 0
-      }}>🐾</div>
-
-      <div style={{ maxWidth: '1400px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
-        
+      <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
         {/* Шапка */}
         <div style={{
-          background: 'rgba(255, 248, 235, 0.9)',
-          backdropFilter: 'blur(10px)',
-          borderRadius: '30px',
-          padding: '25px 30px',
-          marginBottom: '30px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          boxShadow: '0 8px 16px rgba(75, 40, 20, 0.15)'
+          marginBottom: '30px',
+          background: 'rgba(255,248,235,0.9)',
+          padding: '20px',
+          borderRadius: '20px'
         }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-              <span style={{ fontSize: '48px' }}>😺</span>
-              <div>
-                <h1 style={{ 
-                  fontSize: '32px', 
-                  fontWeight: 700,
-                  background: 'linear-gradient(135deg, #8b4513, #d2691e)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  margin: 0
-                }}>
-                  CoffeeCats
-                </h1>
-                <p style={{ color: '#8b6b4f', marginTop: '5px' }}>
-                  {getGreeting()}, {user?.name || 'друг'}! {getUserRoleDisplay()}
-                </p>
-              </div>
-            </div>
+            <h1 style={{ color: '#5a3e2b' }}>🐱 CoffeeCats</h1>
+            <p style={{ color: '#8b6b4f' }}>Добро пожаловать, {auth.user?.name}!</p>
+            <p style={{ fontSize: '14px', color: '#a67b5b' }}>Роль: {
+              auth.user?.role === 'admin' ? 'Администратор' :
+              auth.user?.role === 'barista' ? 'Бариста' : 'Волонтёр'
+            }</p>
           </div>
-
-          <div style={{ textAlign: 'right' }}>
-            <p style={{ color: '#5a3e2b', fontWeight: 600 }}>
-              {currentTime.toLocaleDateString('ru-RU', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-              })}
-            </p>
-            <p style={{ color: '#a67b5b' }}>
-              {currentTime.toLocaleTimeString('ru-RU', { 
-                hour: '2-digit', 
-                minute: '2-digit' 
-              })}
-            </p>
-          </div>
+          <button
+            onClick={handleLogout}
+            style={{
+              padding: '10px 20px',
+              background: '#8b4513',
+              color: 'white',
+              border: 'none',
+              borderRadius: '50px',
+              cursor: 'pointer'
+            }}
+          >
+            Выйти
+          </button>
         </div>
 
-        {/* Баннер открытия */}
-        <div style={{
-          background: 'linear-gradient(135deg, #8b4513, #d2691e)',
-          borderRadius: '20px',
-          padding: '20px 30px',
-          marginBottom: '30px',
-          color: 'white',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          animation: 'pulse 2s infinite'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-            <span style={{ fontSize: '48px' }}>🎉</span>
-            <div>
-              <h2 style={{ margin: '0 0 5px 0' }}>Мы открылись!</h2>
-              <p style={{ opacity: 0.9, margin: 0 }}>
-                {stats.catsInCafe} котиков ждут тебя!
-              </p>
-            </div>
-          </div>
-          <span style={{ fontSize: '48px' }}>☕</span>
-        </div>
-
-        {/* Ошибка */}
-        {error && (
-          <div style={{
-            background: '#f8d7da',
-            color: '#721c24',
-            padding: '15px',
-            borderRadius: '10px',
-            marginBottom: '20px',
-            textAlign: 'center'
-          }}>
-            {error}
-          </div>
-        )}
-
-        {/* Статистика */}
+        {/* Карточки статистики */}
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
@@ -310,75 +73,48 @@ const Dashboard: React.FC = () => {
           marginBottom: '30px'
         }}>
           <div style={{
-            background: 'rgba(255, 248, 235, 0.9)',
-            backdropFilter: 'blur(5px)',
+            background: 'rgba(255,248,235,0.9)',
             borderRadius: '20px',
             padding: '20px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '15px'
+            textAlign: 'center'
           }}>
-            <span style={{ fontSize: '36px' }}>🐱</span>
-            <div>
-              <span style={{ fontSize: '28px', fontWeight: 700, color: '#8b4513' }}>
-                {stats.catsInCafe}
-              </span>
-              <p style={{ color: '#a67b5b', margin: 0 }}>котиков в кафе</p>
-            </div>
+            <span style={{ fontSize: '32px' }}>📦</span>
+            <p style={{ fontSize: '28px', fontWeight: 700, color: '#8b4513' }}>{products.items.length}</p>
+            <p style={{ color: '#a67b5b' }}>Всего товаров</p>
           </div>
 
           <div style={{
-            background: 'rgba(255, 248, 235, 0.9)',
-            backdropFilter: 'blur(5px)',
+            background: 'rgba(255,248,235,0.9)',
             borderRadius: '20px',
             padding: '20px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '15px'
+            textAlign: 'center'
           }}>
-            <span style={{ fontSize: '36px' }}>🏠</span>
-            <div>
-              <span style={{ fontSize: '28px', fontWeight: 700, color: '#8b4513' }}>
-                {stats.catsAdopted}
-              </span>
-              <p style={{ color: '#a67b5b', margin: 0 }}>нашли дом</p>
-            </div>
+            <span style={{ fontSize: '32px' }}>⚠️</span>
+            <p style={{ fontSize: '28px', fontWeight: 700, color: '#8b4513' }}>{lowStockProducts.length}</p>
+            <p style={{ color: '#a67b5b' }}>Низкий запас</p>
           </div>
 
           <div style={{
-            background: 'rgba(255, 248, 235, 0.9)',
-            backdropFilter: 'blur(5px)',
+            background: 'rgba(255,248,235,0.9)',
             borderRadius: '20px',
             padding: '20px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '15px'
+            textAlign: 'center',
+            border: criticalStockProducts.length > 0 ? '2px solid #dc3545' : 'none'
           }}>
-            <span style={{ fontSize: '36px' }}>☕</span>
-            <div>
-              <span style={{ fontSize: '28px', fontWeight: 700, color: '#8b4513' }}>
-                {stats.coffeeToday}
-              </span>
-              <p style={{ color: '#a67b5b', margin: 0 }}>чашек кофе</p>
-            </div>
+            <span style={{ fontSize: '32px' }}>🔥</span>
+            <p style={{ fontSize: '28px', fontWeight: 700, color: '#8b4513' }}>{criticalStockProducts.length}</p>
+            <p style={{ color: '#a67b5b' }}>Критично мало</p>
           </div>
 
           <div style={{
-            background: 'rgba(255, 248, 235, 0.9)',
-            backdropFilter: 'blur(5px)',
+            background: 'rgba(255,248,235,0.9)',
             borderRadius: '20px',
             padding: '20px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '15px'
+            textAlign: 'center'
           }}>
-            <span style={{ fontSize: '36px' }}>⚠️</span>
-            <div>
-              <span style={{ fontSize: '28px', fontWeight: 700, color: '#8b4513' }}>
-                {stats.criticalStockItems}
-              </span>
-              <p style={{ color: '#a67b5b', margin: 0 }}>критичных запасов</p>
-            </div>
+            <span style={{ fontSize: '32px' }}>🐱</span>
+            <p style={{ fontSize: '28px', fontWeight: 700, color: '#8b4513' }}>{cats.catsInCafe.length}</p>
+            <p style={{ color: '#a67b5b' }}>Котиков в кафе</p>
           </div>
         </div>
 
@@ -389,243 +125,120 @@ const Dashboard: React.FC = () => {
           gap: '30px',
           marginBottom: '30px'
         }}>
-          {/* Левая колонка - последние котики */}
+          {/* Левая колонка — товары с низким запасом */}
           <div style={{
-            background: 'rgba(255, 248, 235, 0.9)',
-            backdropFilter: 'blur(5px)',
-            borderRadius: '30px',
-            padding: '25px'
+            background: 'rgba(255,248,235,0.9)',
+            borderRadius: '20px',
+            padding: '20px'
           }}>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '20px',
-              paddingBottom: '15px',
-              borderBottom: '2px dashed #e6c9a8'
-            }}>
-              <h2 style={{ color: '#5a3e2b', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                🐱 Последние поступления
-              </h2>
-              <Link to="/cats" style={{ color: '#d2691e', textDecoration: 'none' }}>
-                ВСЕ КОТИКИ →
-              </Link>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              {recentCats.map(cat => (
-                <div key={cat.id} style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '15px',
-                  padding: '12px',
-                  background: 'rgba(255, 255, 255, 0.5)',
-                  borderRadius: '15px'
-                }}>
-                  <span style={{ fontSize: '32px' }}>
-                    {cat.color === 'рыжий' && '🦁'}
-                    {cat.color === 'серая' && '🐭'}
-                    {cat.color === 'белый' && '🐇'}
-                    {cat.color === 'рыжая' && '🦊'}
-                  </span>
-                  <div style={{ flex: 1 }}>
-                    <span style={{ fontWeight: 600, color: '#5a3e2b' }}>{cat.name}</span>
-                    <p style={{ fontSize: '12px', color: '#a67b5b', margin: '4px 0 0' }}>
-                      {cat.personality}
-                    </p>
-                  </div>
-                  <span style={{
-                    padding: '6px 12px',
-                    borderRadius: '50px',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    background: cat.status === 'in_cafe' ? '#e6c9a8' : 
-                               cat.status === 'reserved' ? '#fff3cd' : '#d4edda',
-                    color: cat.status === 'in_cafe' ? '#5a3e2b' : 
-                           cat.status === 'reserved' ? '#856404' : '#155724'
+            <h2 style={{ color: '#5a3e2b', marginBottom: '15px' }}>⚠️ Требует внимания</h2>
+            {lowStockProducts.length === 0 ? (
+              <p style={{ color: '#28a745', textAlign: 'center', padding: '20px' }}>✅ Все товары в норме</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {lowStockProducts.map(product => (
+                  <div key={product.id} style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '12px',
+                    background: 'rgba(255,255,255,0.5)',
+                    borderRadius: '15px',
+                    borderLeft: `4px solid ${product.stock <= product.minQuantity * 0.5 ? '#dc3545' : '#ffc107'}`
                   }}>
-                    {cat.status === 'in_cafe' && 'В кафе'}
-                    {cat.status === 'reserved' && 'Забронирован'}
-                    {cat.status === 'adopted' && 'Пристроен'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Правая колонка - низкий запас */}
-          <div style={{
-            background: 'rgba(255, 248, 235, 0.9)',
-            backdropFilter: 'blur(5px)',
-            borderRadius: '30px',
-            padding: '25px'
-          }}>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '20px',
-              paddingBottom: '15px',
-              borderBottom: '2px dashed #e6c9a8'
-            }}>
-              <h2 style={{ color: '#5a3e2b', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                ⚠️ Требует внимания
-              </h2>
-              <Link to="/inventory" style={{ color: '#d2691e', textDecoration: 'none' }}>
-                ВЕСЬ СКЛАД →
-              </Link>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              {lowStock.map(item => (
-                <div key={item.id} style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '15px',
-                  padding: '15px',
-                  background: 'rgba(255, 255, 255, 0.5)',
-                  borderRadius: '15px',
-                  borderLeft: `5px solid ${getStockStatusColor(item.stock, item.minQuantity)}`
-                }}>
-                  <span style={{ fontSize: '24px' }}>{getCategoryIcon(item.category)}</span>
-                  <div style={{ flex: 1 }}>
-                    <span style={{ fontWeight: 600, color: '#5a3e2b' }}>{item.name}</span>
-                    <p style={{ fontSize: '12px', color: '#a67b5b', margin: '4px 0 0' }}>
-                      Осталось: {item.stock} {item.unit} (мин. {item.minQuantity} {item.unit})
-                    </p>
+                    <div>
+                      <span style={{ fontWeight: 600 }}>{product.name}</span>
+                      <p style={{ fontSize: '12px', color: '#a67b5b' }}>
+                        Осталось: {product.stock} {product.unit} (мин. {product.minQuantity} {product.unit})
+                      </p>
+                    </div>
+                    <span style={{
+                      padding: '4px 10px',
+                      borderRadius: '20px',
+                      fontSize: '12px',
+                      background: product.stock <= product.minQuantity * 0.5 ? '#dc3545' : '#ffc107',
+                      color: 'white'
+                    }}>
+                      {product.stock <= product.minQuantity * 0.5 ? 'Критично' : 'Мало'}
+                    </span>
                   </div>
-                  <span style={{
-                    padding: '4px 10px',
-                    borderRadius: '50px',
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    background: getStockStatusColor(item.stock, item.minQuantity),
-                    color: 'white'
-                  }}>
-                    {item.stock <= item.minQuantity * 0.5 ? 'Критично' : 'Мало'}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            {/* Статистика команды */}
-            <div style={{
-              marginTop: '20px',
-              padding: '15px',
-              background: 'rgba(210, 105, 30, 0.1)',
-              borderRadius: '15px',
-              display: 'flex',
-              justifyContent: 'space-around'
-            }}>
-              <div style={{ textAlign: 'center' }}>
-                <span style={{ fontSize: '24px' }}>😺</span>
-                <p style={{ fontWeight: 700, color: '#8b4513' }}>{stats.volunteers}</p>
-                <p style={{ fontSize: '12px', color: '#a67b5b' }}>КОТИКИ!!!</p>
+                ))}
               </div>
-              <div style={{ textAlign: 'center' }}>
-                <span style={{ fontSize: '24px' }}>☕</span>
-                <p style={{ fontWeight: 700, color: '#8b4513' }}>{stats.baristas}</p>
-                <p style={{ fontSize: '12px', color: '#a67b5b' }}>Дайте КОФЕ!!!</p>
-              </div>
-              <div style={{ textAlign: 'center' }}>
-                <span style={{ fontSize: '24px' }}>💼</span>
-                <p style={{ fontWeight: 700, color: '#8b4513' }}>{stats.workers}</p>
-                <p style={{ fontSize: '12px', color: '#a67b5b' }}>Work work work</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Кнопки быстрого доступа */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: '15px'
-        }}>
-          <Link to="/products" style={{ textDecoration: 'none' }}>
-            <div style={{
-              background: 'rgba(255, 248, 235, 0.9)',
-              backdropFilter: 'blur(5px)',
-              borderRadius: '15px',
-              padding: '20px',
-              textAlign: 'center',
-              transition: 'transform 0.3s ease',
-              cursor: 'pointer'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
-            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-              <span style={{ fontSize: '32px' }}>☕</span>
-              <p style={{ color: '#5a3e2b', fontWeight: 600, marginTop: '10px' }}>Меню</p>
-            </div>
-          </Link>
-
-          <Link to="/inventory" style={{ textDecoration: 'none' }}>
-            <div style={{
-              background: 'rgba(255, 248, 235, 0.9)',
-              backdropFilter: 'blur(5px)',
-              borderRadius: '15px',
-              padding: '20px',
-              textAlign: 'center',
-              transition: 'transform 0.3s ease',
-              cursor: 'pointer'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
-            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-              <span style={{ fontSize: '32px' }}>📦</span>
-              <p style={{ color: '#5a3e2b', fontWeight: 600, marginTop: '10px' }}>Склад</p>
-            </div>
-          </Link>
-
-          <Link to="/cats" style={{ textDecoration: 'none' }}>
-            <div style={{
-              background: 'rgba(255, 248, 235, 0.9)',
-              backdropFilter: 'blur(5px)',
-              borderRadius: '15px',
-              padding: '20px',
-              textAlign: 'center',
-              transition: 'transform 0.3s ease',
-              cursor: 'pointer'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
-            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-              <span style={{ fontSize: '32px' }}>🐱</span>
-              <p style={{ color: '#5a3e2b', fontWeight: 600, marginTop: '10px' }}>Котики</p>
-            </div>
-          </Link>
-
-          {isAdmin && (
-            <Link to="/admin" style={{ textDecoration: 'none' }}>
-              <div style={{
-                background: 'rgba(255, 248, 235, 0.9)',
-                backdropFilter: 'blur(5px)',
+            )}
+            <button
+              onClick={() => navigate('/inventory')}
+              style={{
+                marginTop: '15px',
+                width: '100%',
+                padding: '10px',
+                background: '#8b4513',
+                color: 'white',
+                border: 'none',
                 borderRadius: '15px',
-                padding: '20px',
-                textAlign: 'center',
-                transition: 'transform 0.3s ease',
                 cursor: 'pointer'
               }}
-              onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
-              onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-                <span style={{ fontSize: '32px' }}>⚙️</span>
-                <p style={{ color: '#5a3e2b', fontWeight: 600, marginTop: '10px' }}>Админка</p>
+            >
+              Перейти на склад →
+            </button>
+          </div>
+
+          {/* Правая колонка — котики */}
+          <div style={{
+            background: 'rgba(255,248,235,0.9)',
+            borderRadius: '20px',
+            padding: '20px'
+          }}>
+            <h2 style={{ color: '#5a3e2b', marginBottom: '15px' }}>🐱 Наши котики</h2>
+            {cats.catsInCafe.length === 0 ? (
+              <p style={{ color: '#a67b5b', textAlign: 'center', padding: '20px' }}>Пока нет котиков в кафе</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {cats.catsInCafe.slice(0, 5).map(cat => (
+                  <div key={cat.id} style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '12px',
+                    background: 'rgba(255,255,255,0.5)',
+                    borderRadius: '15px'
+                  }}>
+                    <div>
+                      <span style={{ fontWeight: 600 }}>{cat.name}</span>
+                      <p style={{ fontSize: '12px', color: '#a67b5b' }}>{cat.color}, {cat.age} {cat.age === 1 ? 'год' : cat.age < 5 ? 'года' : 'лет'}</p>
+                    </div>
+                    <span style={{
+                      padding: '4px 10px',
+                      borderRadius: '20px',
+                      fontSize: '12px',
+                      background: cat.status === 'in_cafe' ? '#17a2b8' : '#ffc107',
+                      color: 'white'
+                    }}>
+                      {cat.status === 'in_cafe' ? 'В кафе' : 'Забронирован'}
+                    </span>
+                  </div>
+                ))}
               </div>
-            </Link>
-          )}
+            )}
+            <button
+              onClick={() => navigate('/cats')}
+              style={{
+                marginTop: '15px',
+                width: '100%',
+                padding: '10px',
+                background: '#8b4513',
+                color: 'white',
+                border: 'none',
+                borderRadius: '15px',
+                cursor: 'pointer'
+              }}
+            >
+              Все котики →
+            </button>
+          </div>
         </div>
       </div>
-
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.02); }
-        }
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   );
-};
+});
 
 export default Dashboard;
