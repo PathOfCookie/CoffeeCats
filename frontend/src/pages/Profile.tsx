@@ -2,14 +2,21 @@ import React from 'react';
 import { useSelector } from 'react-redux';
 import { useGetProductsQuery } from '../store/api/productsApi';
 import { useGetCatsQuery } from '../store/api/catsApi';
+import { RootState } from '../store';
+
+// Тип для котика (можно импортировать из shared или определить локально)
+interface Cat {
+  id: string;
+  status: 'in_cafe' | 'reserved' | 'adopted';
+  // другие поля при необходимости
+}
 
 const Profile: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
   
-  // 🔄 Данные из кэша! Не делают новый запрос, если уже загружены
-  const { data: products } = useGetProductsQuery();
-  const { data: cats } = useGetCatsQuery();
-
+  // ✅ Передаём undefined как аргумент
+  const { data: products } = useGetProductsQuery(undefined);
+  const { data: cats } = useGetCatsQuery(undefined);
   return (
     <div>
       <h1>Профиль пользователя</h1>
@@ -19,7 +26,9 @@ const Profile: React.FC = () => {
       
       <h3>📊 Статистика (данные из кэша)</h3>
       <p>Всего товаров: {products?.length || 0}</p>
-      <p>Котиков в кафе: {cats?.filter(c => c.status === 'in_cafe').length || 0}</p>
+      <p>Котиков в кафе: {cats?.filter((cat: Cat) => cat.status === 'in_cafe').length || 0}</p>
     </div>
   );
 };
+
+export default Profile;

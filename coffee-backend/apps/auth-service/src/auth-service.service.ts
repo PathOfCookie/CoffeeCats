@@ -14,38 +14,33 @@ export class AuthServiceService {
     private jwtService: JwtService,
   ) {}
 
-  async register(registerDto: RegisterDto) {
-    const { email, password, name, phone } = registerDto;
-
-    const existingUser = await this.userRepository.findOne({ where: { email } });
+  async register(dto: RegisterDto) {
+    const existingUser = await this.userRepository.findOne({ where: { email: dto.email } });
     if (existingUser) {
       throw new ConflictException('Пользователь с таким email уже существует');
     }
 
     const salt = await bcrypt.genSalt(10);
-    const password_hash = await bcrypt.hash(password, salt);
+    const password_hash = await bcrypt.hash(dto.password, salt);
 
     const user = this.userRepository.create({
-      email,
+      name: dto.name,
+      email: dto.email,
       password_hash,
-      name,
-      phone,
+      phone: dto.phone,
     });
 
     await this.userRepository.save(user);
-
     return this.generateTokens(user);
   }
 
-  async login(loginDto: LoginDto) {
-    const { email, password } = loginDto;
-
-    const user = await this.userRepository.findOne({ where: { email } });
+  async login(dto: LoginDto) {
+    const user = await this.userRepository.findOne({ where: { email: dto.email } });
     if (!user) {
       throw new UnauthorizedException('Неверный email или пароль');
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+    const isPasswordValid = await bcrypt.compare(dto.password, user.password_hash);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Неверный email или пароль');
     }
@@ -58,23 +53,35 @@ export class AuthServiceService {
 
   async refreshTokens(refreshToken: string) {
     try {
-      const payload = this.jwtService.verify(refreshToken);
+      const payload = this.jwtService.verify(refreshToken, {
+        secret: process.env.JWT_REFRESH_SECRET,
+      });
+
       const user = await this.userRepository.findOne({ where: { id: payload.sub } });
       if (!user) {
         throw new UnauthorizedException('Недействительный refresh токен');
       }
+
       return this.generateTokens(user);
     } catch {
       throw new UnauthorizedException('Недействительный refresh токен');
     }
   }
 
-  async validateUser(email: string, password: string) {
+  async validateUserCredentials(email: string, password: string) {
     const user = await this.userRepository.findOne({ where: { email } });
     if (user && await bcrypt.compare(password, user.password_hash)) {
       return user;
     }
     return null;
+  }
+
+  async validateUser(userId: number) {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException('Пользователь не найден');
+    }
+    return { id: user.id, email: user.email, role: user.role };
   }
 
   private generateTokens(user: User) {
@@ -86,15 +93,6 @@ export class AuthServiceService {
       expiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
     });
 
-    return {
-      accessToken,
-      refreshToken,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
-    };
+    return { accessToken, refreshToken, user: { id: user.id, name: user.name, email: user.email, role: user.role } };
   }
 }

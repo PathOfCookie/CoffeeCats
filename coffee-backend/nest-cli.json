@@ -8,17 +8,8 @@
     "tsConfigPath": "apps/api-service/tsconfig.app.json"
   },
   "monorepo": true,
-  "root": "apps/api-service",
+  "root": "apps/main-service",
   "projects": {
-    "api-service": {
-      "type": "application",
-      "root": "apps/api-service",
-      "entryFile": "main",
-      "sourceRoot": "apps/api-service/src",
-      "compilerOptions": {
-        "tsConfigPath": "apps/api-service/tsconfig.app.json"
-      }
-    },
     "auth-service": {
       "type": "application",
       "root": "apps/auth-service",
@@ -28,31 +19,13 @@
         "tsConfigPath": "apps/auth-service/tsconfig.app.json"
       }
     },
-    "products-service": {
+    "main-service": {
       "type": "application",
-      "root": "apps/products-service",
+      "root": "apps/main-service",
       "entryFile": "main",
-      "sourceRoot": "apps/products-service/src",
+      "sourceRoot": "apps/main-service/src",
       "compilerOptions": {
-        "tsConfigPath": "apps/products-service/tsconfig.app.json"
-      }
-    },
-    "cats-service": {
-      "type": "application",
-      "root": "apps/cats-service",
-      "entryFile": "main",
-      "sourceRoot": "apps/cats-service/src",
-      "compilerOptions": {
-        "tsConfigPath": "apps/cats-service/tsconfig.app.json"
-      }
-    },
-    "inventory-service": {
-      "type": "application",
-      "root": "apps/inventory-service",
-      "entryFile": "main",
-      "sourceRoot": "apps/inventory-service/src",
-      "compilerOptions": {
-        "tsConfigPath": "apps/inventory-service/tsconfig.app.json"
+        "tsConfigPath": "apps/main-service/tsconfig.app.json"
       }
     }
   }
