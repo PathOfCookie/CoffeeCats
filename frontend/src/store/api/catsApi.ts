@@ -1,7 +1,7 @@
 // src/store/api/catsApi.ts
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 
-const CATS_SERVICE_URL = process.env.REACT_APP_CATS_SERVICE_URL || 'http://localhost:3000';
+const CATS_SERVICE_URL = process.env.REACT_APP_CATS_SERVICE_URL || 'http://localhost:3003';
 
 export const catsApi = createApi({
   reducerPath: 'catsApi',

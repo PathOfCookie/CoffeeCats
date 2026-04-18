@@ -7,7 +7,10 @@ import AuthPage from './pages/AuthPage';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> mobx-version
 // Компонент для защиты приватных маршрутов
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const isAuthenticated = !!localStorage.getItem('accessToken');

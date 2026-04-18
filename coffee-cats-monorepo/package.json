@@ -1,0 +1,14 @@
+{
+  "name": "coffee-cats-monorepo",
+  "private": true,
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "dev": "concurrently \"yarn workspace @coffee-cats/host start\" \"yarn workspace @coffee-cats/mf-auth start\" \"yarn workspace @coffee-cats/mf-products start\" \"yarn workspace @coffee-cats/mf-cats start\"",
+    "build:all": "yarn workspaces run build",
+    "clean": "yarn workspaces run clean"
+  },
+  "devDependencies": {
+    "concurrently": "^8.0.0",
+    "typescript": "^5.0.0"
+  }
+}

@@ -34,14 +34,14 @@ const Dashboard: React.FC = () => {
     window.location.href = '/';
   };
 
-  if (userLoading || productsLoading || catsLoading) {
+  if (productsLoading || catsLoading) {
     return (
       <div style={{
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
         height: '100vh',
-        background: '#fae5d7'
+        background: 'linear-gradient(135deg, #fae5d7 0%, #e6d5b8 100%)'
       }}>
         <div style={{ fontSize: '48px', animation: 'spin 1s infinite' }}>🐱</div>
       </div>
