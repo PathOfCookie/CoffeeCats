@@ -22,6 +22,7 @@ class ProductsStore {
   }
 
   fetchProducts = async (force: boolean = false) => {
+    // Используем кэш, если данные свежие и есть товары
     if (!force && this.isCacheValid() && this.items.length > 0) {
       console.log('📦 Используем кэш товаров');
       return;
@@ -39,15 +40,20 @@ class ProductsStore {
       const products = await productsService.getAll(this.authStore.accessToken);
       
       runInAction(() => {
-        this.items = products;
+        // 🔥 Защита: убеждаемся, что products — массив
+        this.items = Array.isArray(products) ? products : [];
         this.lastFetched = Date.now();
         this.loading = false;
       });
+      
+      console.log(`✅ Загружено товаров: ${this.items.length}`);
     } catch (error: any) {
       runInAction(() => {
         this.error = error.response?.data?.message || 'Ошибка загрузки товаров';
+        this.items = []; // При ошибке сбрасываем в пустой массив
         this.loading = false;
       });
+      console.error('❌ Ошибка загрузки товаров:', error);
     }
   };
 
@@ -63,11 +69,17 @@ class ProductsStore {
           this.items[index] = updated;
         }
       });
+      
+      console.log(`✅ Обновлён товар ${id}: новый остаток ${stock}`);
     } catch (error: any) {
-      console.error('Ошибка обновления:', error);
+      console.error('❌ Ошибка обновления товара:', error);
+      runInAction(() => {
+        this.error = 'Ошибка обновления товара';
+      });
     }
   };
 
+  // Computed properties
   get lowStockProducts() {
     return this.items.filter(p => p.stock <= p.minQuantity);
   }
@@ -78,6 +90,10 @@ class ProductsStore {
 
   get totalValue() {
     return this.items.reduce((sum, p) => sum + (p.price * p.stock), 0);
+  }
+
+  get lowStockCount() {
+    return this.lowStockProducts.length;
   }
 }
 
