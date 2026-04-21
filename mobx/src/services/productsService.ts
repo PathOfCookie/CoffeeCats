@@ -23,30 +23,25 @@ export const productsService = {
         headers: { Authorization: `Bearer ${token}` },
       });
       
-      // 🔥 Гарантируем, что возвращается массив
+      // Защита от не-массива
       if (Array.isArray(response.data)) {
         return response.data;
       } else {
-        console.error('API вернул не массив:', response.data);
+        console.warn('API вернул не массив:', response.data);
         return [];
       }
     } catch (error) {
       console.error('Ошибка загрузки товаров:', error);
-      return []; // ← при ошибке возвращаем пустой массив
+      return []; // Возвращаем пустой массив при ошибке
     }
   },
 
   updateStock: async (id: string, stock: number, token: string): Promise<Product> => {
-    try {
-      const response = await axios.patch(
-        `${PRODUCTS_SERVICE_URL}/products/${id}`,
-        { stock },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      return response.data;
-    } catch (error) {
-      console.error('Ошибка обновления товара:', error);
-      throw error;
-    }
+    const response = await axios.patch(
+      `${PRODUCTS_SERVICE_URL}/products/${id}`,
+      { stock },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    return response.data;
   },
 };
