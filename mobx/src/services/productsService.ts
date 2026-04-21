@@ -19,7 +19,7 @@ export interface Product {
 export const productsService = {
   getAll: async (token: string): Promise<Product[]> => {
     try {
-      const response = await axios.get(`${PRODUCTS_SERVICE_URL}/products`, {
+      const response = await axios.get(`${API_URL}/products`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       
