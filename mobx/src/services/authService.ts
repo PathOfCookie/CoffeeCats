@@ -1,7 +1,7 @@
 // src/services/authService.ts
 import axios from 'axios';
 
-const AUTH_SERVICE_URL = process.env.REACT_APP_AUTH_SERVICE_URL || 'http://localhost:3001';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost/api';
 
 export interface User {
   id: string;
@@ -25,12 +25,12 @@ export const authService = {
     role: string;
     phone?: string;
   }): Promise<AuthResponse> => {
-    const response = await axios.post(`${AUTH_SERVICE_URL}/auth/register`, data);
+    const response = await axios.post(`${API_URL}/auth/register`, data);
     return response.data;
   },
 
   login: async (email: string, password: string): Promise<AuthResponse> => {
-    const response = await axios.post(`${AUTH_SERVICE_URL}/auth/login`, { email, password });
+    const response = await axios.post(`${API_URL}/auth/login`, { email, password });
     return response.data;
   },
 

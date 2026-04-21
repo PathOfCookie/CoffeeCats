@@ -1,7 +1,7 @@
 // src/services/catsService.ts
 import axios from 'axios';
 
-const CATS_SERVICE_URL = process.env.REACT_APP_CATS_SERVICE_URL || 'http://localhost:3003';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost/api';
 
 export interface Cat {
   id: string;
@@ -23,7 +23,7 @@ export interface Cat {
 
 export const catsService = {
   getAll: async (token: string): Promise<Cat[]> => {
-    const response = await axios.get(`${CATS_SERVICE_URL}/cats`, {
+    const response = await axios.get(`${API_URL}/cats`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     return response.data;
@@ -31,7 +31,7 @@ export const catsService = {
 
   updateStatus: async (id: string, status: Cat['status'], token: string): Promise<Cat> => {
     const response = await axios.patch(
-      `${CATS_SERVICE_URL}/cats/${id}/status`,
+      `${API_URL}/cats/${id}/status`,
       { status },
       { headers: { Authorization: `Bearer ${token}` } }
     );

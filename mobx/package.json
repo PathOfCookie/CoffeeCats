@@ -12,6 +12,8 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "axios": "^1.15.1",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
     "mobx": "^6.15.0",
     "mobx-react-lite": "^4.1.1",
     "react": "^19.2.5",
