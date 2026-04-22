@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunk_coffee_cats_mf_cats=self.webpackChunk_coffee_cats_mf_cats||[]).push([[195],{195(c,e,s){s.r(e)}}]);
